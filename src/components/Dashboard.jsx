@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { sound } from '../utils/audio';
 import { ArrowRight, Plus, Clock } from 'lucide-react';
 
@@ -41,7 +41,7 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
             Tổng quan ngày
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Kỷ luật chuỗi {streak?.currentStreak || 8} ngày • Nạp +{streak?.kanjiVocabCount || 0} từ vựng/Kanji • Tiết kiệm {fin.rate}% thu nhập
+            Kỷ luật chuỗi {streak?.currentStreak ?? 0} ngày • Nạp +{streak?.kanjiVocabCount ?? 0} từ vựng/Kanji • Tiết kiệm {fin.rate}% thu nhập
           </p>
         </div>
 
@@ -71,7 +71,7 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
         </div>
 
         <div className="zen-card" style={{ padding: '20px' }}>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>TỔNG ĐÃ CHI THÁNG 9</div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>TỔNG ĐÃ CHI THÁNG {new Date().getMonth() + 1}</div>
           <div className="font-mono" style={{ fontSize: '1.5rem', fontWeight: '600', color: 'var(--accent-rose)', marginTop: '8px' }}>
             {formatVND(fin.expense)}
           </div>
@@ -83,10 +83,10 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
         <div className="zen-card" style={{ padding: '20px' }}>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>THỜI GIAN HỌC HÔM NAY</div>
           <div className="font-mono" style={{ fontSize: '1.5rem', fontWeight: '600', color: '#FFFFFF', marginTop: '8px' }}>
-            {streak?.studyMinutesToday || 55}m
+            {streak?.studyMinutesToday ?? 0}m
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Mục tiêu: {streak?.dailyGoalMinutes || 90}m
+            Mục tiêu: {streak?.dailyGoalMinutes ?? 90}m
           </div>
         </div>
 
@@ -96,7 +96,7 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
             {completedCount}/{tasks.length}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Nhật N3 & Tiếng Anh
+            Học tập & Deep Work
           </div>
         </div>
 
@@ -119,30 +119,36 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {transactions.slice(0, 4).map(t => (
-              <div
-                key={t.id}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '10px 0',
-                  borderBottom: '1px solid var(--border-subtle)',
-                  fontSize: '0.82rem'
-                }}
-              >
-                <div>
-                  <div style={{ color: '#FFFFFF', fontWeight: '500' }}>{t.category}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>{t.date} • {t.method}</div>
-                </div>
-                <span className="font-mono" style={{
-                  fontWeight: '600',
-                  color: t.type === 'Thu' ? 'var(--accent-emerald)' : t.type === 'Tiết kiệm' ? '#A78BFA' : '#FFFFFF'
-                }}>
-                  {t.type === 'Thu' ? '+' : '-'}{formatVND(t.amount)}
-                </span>
+            {transactions.length === 0 ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', padding: '24px 0', textAlign: 'center' }}>
+                Chưa có giao dịch nào được ghi nhận.
               </div>
-            ))}
+            ) : (
+              transactions.slice(0, 4).map(t => (
+                <div
+                  key={t.id}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '10px 0',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    fontSize: '0.82rem'
+                  }}
+                >
+                  <div>
+                    <div style={{ color: '#FFFFFF', fontWeight: '500' }}>{t.category}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>{t.date} • {t.method}</div>
+                  </div>
+                  <span className="font-mono" style={{
+                    fontWeight: '600',
+                    color: t.type === 'Thu' ? 'var(--accent-emerald)' : t.type === 'Tiết kiệm' ? '#A78BFA' : '#FFFFFF'
+                  }}>
+                    {t.type === 'Thu' ? '+' : '-'}{formatVND(t.amount)}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -160,31 +166,40 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {tasks.slice(0, 4).map(t => (
-              <div
-                key={t.id}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '10px 0',
-                  borderBottom: '1px solid var(--border-subtle)',
-                  fontSize: '0.82rem'
-                }}
-              >
-                <div>
-                  <div style={{ color: t.completed ? 'var(--text-faint)' : '#FFFFFF', textDecoration: t.completed ? 'line-through' : 'none' }}>
-                    {t.title}
-                  </div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>
-                    {t.lang === 'ja' ? 'Tiếng Nhật N3' : 'Tiếng Anh'} • {t.durationMin} phút
-                  </div>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: t.completed ? 'var(--accent-emerald)' : 'var(--text-muted)' }}>
-                  {t.completed ? 'Đã xong' : 'Chưa'}
-                </span>
+            {tasks.length === 0 ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', padding: '24px 0', textAlign: 'center' }}>
+                Chưa có nhiệm vụ nào hôm nay.
               </div>
-            ))}
+            ) : (
+              tasks.slice(0, 4).map(t => {
+                const label = t.lang === 'ja' ? '🇯🇵 Nhật N3' : t.lang === 'en' ? '🇬🇧 Tiếng Anh' : t.lang === 'deep' ? '⚡ Deep Work' : '📌 Cá nhân';
+                return (
+                  <div
+                    key={t.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 0',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      fontSize: '0.82rem'
+                    }}
+                  >
+                    <div>
+                      <div style={{ color: t.completed ? 'var(--text-faint)' : '#FFFFFF', textDecoration: t.completed ? 'line-through' : 'none' }}>
+                        {t.title}
+                      </div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: '2px' }}>
+                        {label} • {t.durationMin} phút
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: t.completed ? 'var(--accent-emerald)' : 'var(--text-muted)' }}>
+                      {t.completed ? 'Đã xong' : 'Chưa'}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 

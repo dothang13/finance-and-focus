@@ -1,5 +1,5 @@
-﻿import React, { useState } from 'react';
-import { Radio, Smartphone, Flame, Volume2, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { Radio, Smartphone, Flame, Check } from 'lucide-react';
 import { sound } from '../utils/audio';
 
 export default function Header({ onOpenSync, onOpenStreak, streak, activeTab, setActiveTab }) {
@@ -89,7 +89,7 @@ export default function Header({ onOpenSync, onOpenStreak, streak, activeTab, se
             title="Nhấn để xem Lịch kỷ luật chuỗi ngày"
           >
             <Flame size={14} color="#F59E0B" />
-            <span style={{ fontWeight: '600' }}>{streak?.currentStreak || 8}d</span>
+            <span style={{ fontWeight: '600' }}>{streak?.currentStreak ?? 0}d</span>
           </div>
 
           {/* Sound Selector Dropdown */}

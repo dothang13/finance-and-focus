@@ -1,6 +1,8 @@
-﻿import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Search, X } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Trash2, Search, X, Calculator } from 'lucide-react';
 import { sound } from '../utils/audio';
+import { loadSavedBudgetPlan } from '../utils/storage';
+import BudgetAdvisorModal from './BudgetAdvisorModal';
 
 const CATEGORIES = [
   { name: 'Nhà ở & Tiền thuê', group: 'Thiết yếu', type: 'Chi' },
@@ -21,6 +23,7 @@ const CATEGORIES = [
 
 export default function FinFlow({ transactions, setTransactions }) {
   const [showModal, setShowModal] = useState(false);
+  const [showAdvisor, setShowAdvisor] = useState(false);
   const [filterType, setFilterType] = useState('ALL');
   const [search, setSearch] = useState('');
 
@@ -84,9 +87,20 @@ export default function FinFlow({ transactions, setTransactions }) {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
   };
 
+  const handleAmountChange = (e) => {
+    const rawVal = e.target.value.replace(/\D/g, '');
+    if (!rawVal) {
+      setAmount('');
+      return;
+    }
+    const formatted = rawVal.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    setAmount(formatted);
+  };
+
   const handleAdd = (e) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) return;
+    const rawNum = Number(amount.replace(/\./g, ''));
+    if (!rawNum || rawNum <= 0) return;
 
     sound.playClick();
     const newTx = {
@@ -95,7 +109,7 @@ export default function FinFlow({ transactions, setTransactions }) {
       type,
       category,
       group,
-      amount: Number(amount),
+      amount: rawNum,
       method,
       note: note || category
     };
@@ -113,20 +127,64 @@ export default function FinFlow({ transactions, setTransactions }) {
     }
   };
 
+  const handleQuickPreset = (preset) => {
+    sound.playClick();
+    setType(preset.type);
+    setCategory(preset.category);
+    setGroup(preset.group);
+    setAmount(preset.amount ? String(preset.amount).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
+    setMethod(preset.method || 'Chuyển khoản');
+    setNote(preset.note || preset.category);
+    setShowModal(true);
+  };
+
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px 60px' }}>
       
       {/* Top Header & Action */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: '600', color: '#FFFFFF', letterSpacing: '-0.02em' }}>Tài chính cá nhân</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Theo dõi dòng tiền và kiểm soát hạn mức ngân sách 50/30/20</p>
         </div>
 
-        <button onClick={() => setShowModal(true)} className="btn-solid">
-          <Plus size={15} />
-          <span>Thêm giao dịch</span>
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            onClick={() => { sound.playClick(); setShowAdvisor(true); }}
+            className="btn-ghost"
+            style={{ padding: '8px 14px' }}
+            title="Nhập lương và trọ để gợi ý phân bổ chi tiêu sinh hoạt"
+          >
+            <Calculator size={15} color="var(--accent-emerald)" />
+            <span>Gợi ý phân bổ chi tiêu</span>
+          </button>
+
+          <button onClick={() => setShowModal(true)} className="btn-solid">
+            <Plus size={15} />
+            <span>Thêm giao dịch</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 1-Click Quick Expense Presets */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '24px' }}>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Nhập nhanh:</span>
+        {[
+          { label: '☕ Cà phê 35k', type: 'Chi', category: 'Cà phê & Gặp gỡ', group: 'Mong muốn', amount: 35000, method: 'Ví điện tử', note: 'Cà phê sáng' },
+          { label: '🍱 Bữa trưa 50k', type: 'Chi', category: 'Ăn uống & Nhu yếu phẩm', group: 'Thiết yếu', amount: 50000, method: 'Ví điện tử', note: 'Cơm trưa' },
+          { label: '⛽ Đổ xăng 70k', type: 'Chi', category: 'Đi lại & Xăng xe', group: 'Thiết yếu', amount: 70000, method: 'Tiền mặt', note: 'Đổ xăng' },
+          { label: '🛒 Siêu thị 250k', type: 'Chi', category: 'Ăn uống & Nhu yếu phẩm', group: 'Thiết yếu', amount: 250000, method: 'Thẻ tín dụng', note: 'Siêu thị' },
+          { label: '💰 Tiết kiệm 1.000k', type: 'Tiết kiệm', category: 'Đầu tư tích lũy', group: 'Tiết kiệm', amount: 1000000, method: 'Chuyển khoản', note: 'Tích lũy định kỳ' },
+          { label: '💼 Lương tháng', type: 'Thu', category: 'Lương tháng', group: 'Thu nhập', amount: '', method: 'Chuyển khoản', note: 'Lương tháng' }
+        ].map((p, idx) => (
+          <button
+            key={idx}
+            onClick={() => handleQuickPreset(p)}
+            className="preset-chip"
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
 
       {/* Metrics Row */}
@@ -277,54 +335,60 @@ export default function FinFlow({ transactions, setTransactions }) {
 
         {/* List */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {filtered.map(t => {
-            const isInc = t.type === 'Thu';
-            const isSav = t.type === 'Tiết kiệm';
+          {filtered.length === 0 ? (
+            <div style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              Chưa có giao dịch nào được ghi nhận. Bấm "+ Thêm giao dịch" để bắt đầu theo dõi thu chi.
+            </div>
+          ) : (
+            filtered.map(t => {
+              const isInc = t.type === 'Thu';
+              const isSav = t.type === 'Tiết kiệm';
 
-            return (
-              <div
-                key={t.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 8px',
-                  borderBottom: '1px solid var(--border-subtle)',
-                  fontSize: '0.85rem'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <div style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    background: isInc ? 'var(--accent-emerald)' : isSav ? '#A78BFA' : 'var(--accent-rose)'
-                  }} />
-                  <div>
-                    <div style={{ color: '#FFFFFF', fontWeight: '500' }}>{t.category}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {t.date} • {t.method} {t.note && `• "${t.note}"`}
+              return (
+                <div
+                  key={t.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 8px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <div style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: isInc ? 'var(--accent-emerald)' : isSav ? '#A78BFA' : 'var(--accent-rose)'
+                    }} />
+                    <div>
+                      <div style={{ color: '#FFFFFF', fontWeight: '500' }}>{t.category}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {t.date} • {t.method} {t.note && `• "${t.note}"`}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <span className="font-mono" style={{
-                    fontWeight: '600',
-                    color: isInc ? 'var(--accent-emerald)' : isSav ? '#A78BFA' : '#FFFFFF'
-                  }}>
-                    {isInc ? '+' : '-'}{formatVND(t.amount)}
-                  </span>
-                  <button
-                    onClick={() => handleDelete(t.id)}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', padding: '4px' }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <span className="font-mono" style={{
+                      fontWeight: '600',
+                      color: isInc ? 'var(--accent-emerald)' : isSav ? '#A78BFA' : '#FFFFFF'
+                    }}>
+                      {isInc ? '+' : '-'}{formatVND(t.amount)}
+                    </span>
+                    <button
+                      onClick={() => handleDelete(t.id)}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', padding: '4px' }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
 
       </div>
@@ -375,15 +439,23 @@ export default function FinFlow({ transactions, setTransactions }) {
 
               {/* Amount */}
               <div>
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Số tiền (VND)</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Số tiền (VND)</label>
+                  {amount && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)', fontWeight: '600' }}>
+                      {formatVND(Number(amount.replace(/\./g, '')))}
+                    </span>
+                  )}
+                </div>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   placeholder="0"
                   required
                   value={amount}
-                  onChange={e => setAmount(e.target.value)}
+                  onChange={handleAmountChange}
                   className="zen-input font-mono"
-                  style={{ fontSize: '1.2rem', fontWeight: '600' }}
+                  style={{ fontSize: '1.25rem', fontWeight: '600', letterSpacing: '0.02em' }}
                 />
               </div>
 
@@ -444,6 +516,11 @@ export default function FinFlow({ transactions, setTransactions }) {
 
           </div>
         </div>
+      )}
+
+      {/* Budget Allocation Advisor Modal */}
+      {showAdvisor && (
+        <BudgetAdvisorModal onClose={() => setShowAdvisor(false)} />
       )}
 
     </div>

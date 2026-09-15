@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
-import { Download, Upload, QrCode, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Download, Upload, X } from 'lucide-react';
 import { sound } from '../utils/audio';
 import { exportAllData, importAllData, INITIAL_TRANSACTIONS, INITIAL_TASKS, INITIAL_STREAK, saveTransactions, saveTasks, saveStreak } from '../utils/storage';
 import QRCode from 'qrcode';
@@ -61,7 +61,7 @@ export default function SyncModal({ onClose, setTransactions, setTasks, setStrea
   };
 
   const handleReset = () => {
-    if (window.confirm('Khôi phục toàn bộ dữ liệu mẫu ban đầu?')) {
+    if (window.confirm('Bạn có chắc muốn xoá toàn bộ dữ liệu và bắt đầu lại từ đầu?')) {
       sound.playClick();
       saveTransactions(INITIAL_TRANSACTIONS);
       saveTasks(INITIAL_TASKS);
@@ -115,8 +115,8 @@ export default function SyncModal({ onClose, setTransactions, setTasks, setStrea
         )}
 
         <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px', display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={handleReset} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.75rem', cursor: 'pointer' }}>
-            Đặt lại dữ liệu ban đầu
+          <button onClick={handleReset} style={{ background: 'none', border: 'none', color: 'var(--accent-rose)', fontSize: '0.75rem', cursor: 'pointer' }}>
+            Xoá toàn bộ dữ liệu (Bắt đầu mới)
           </button>
         </div>
 
