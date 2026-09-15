@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Search, X, Calculator } from 'lucide-react';
+import { Plus, Trash2, Search, X, Calculator, Calendar as CalendarIcon, Filter } from 'lucide-react';
 import { sound } from '../utils/audio';
-import { loadSavedBudgetPlan } from '../utils/storage';
 import BudgetAdvisorModal from './BudgetAdvisorModal';
+import MonthlyFinanceCalendar from './MonthlyFinanceCalendar';
 
 const CATEGORIES = [
   { name: 'Nhà ở & Tiền thuê', group: 'Thiết yếu', type: 'Chi' },
@@ -27,6 +27,15 @@ export default function FinFlow({ transactions, setTransactions }) {
   const [filterType, setFilterType] = useState('ALL');
   const [search, setSearch] = useState('');
 
+  // Calendar State: Year & Month navigation, plus optional single-day filter
+  const today = new Date();
+  const [calMonth, setCalMonth] = useState({
+    year: today.getFullYear(),
+    month: today.getMonth() // 0-indexed
+  });
+  const [selectedDate, setSelectedDate] = useState(null); // 'YYYY-MM-DD' or null for whole month
+  const [scope, setScope] = useState('month'); // 'month' | 'all'
+
   // Form
   const [type, setType] = useState('Chi');
   const [category, setCategory] = useState('Ăn uống & Nhu yếu phẩm');
@@ -34,9 +43,31 @@ export default function FinFlow({ transactions, setTransactions }) {
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState('Chuyển khoản');
   const [note, setNote] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(today.toISOString().split('T')[0]);
 
-  // Statistics
+  const handleChangeMonth = (delta) => {
+    setCalMonth(prev => {
+      let m = prev.month + delta;
+      let y = prev.year;
+      if (m < 0) {
+        m = 11;
+        y -= 1;
+      } else if (m > 11) {
+        m = 0;
+        y += 1;
+      }
+      return { year: y, month: m };
+    });
+    setSelectedDate(null);
+  };
+
+  const handleResetMonth = () => {
+    const now = new Date();
+    setCalMonth({ year: now.getFullYear(), month: now.getMonth() });
+    setSelectedDate(null);
+  };
+
+  // Overall Statistics (for top metrics)
   const stats = useMemo(() => {
     let income = 0;
     let expense = 0;
@@ -73,19 +104,71 @@ export default function FinFlow({ transactions, setTransactions }) {
     };
   }, [transactions]);
 
-  const filtered = useMemo(() => {
-    return transactions.filter(t => {
-      const matchType = filterType === 'ALL' || t.type === filterType;
-      const matchSearch = !search ||
-        t.category.toLowerCase().includes(search.toLowerCase()) ||
-        (t.note && t.note.toLowerCase().includes(search.toLowerCase()));
-      return matchType && matchSearch;
+  const currentMonthPrefix = `${calMonth.year}-${String(calMonth.month + 1).padStart(2, '0')}`;
+
+  // Chronologically Sorted Transactions (Newest Date First)
+  const filteredAndSorted = useMemo(() => {
+    return transactions
+      .filter(t => {
+        // Scope & Date Filtering
+        if (selectedDate) {
+          if (t.date !== selectedDate) return false;
+        } else if (scope === 'month') {
+          if (!t.date || !t.date.startsWith(currentMonthPrefix)) return false;
+        }
+
+        const matchType = filterType === 'ALL' || t.type === filterType;
+        const matchSearch = !search ||
+          t.category.toLowerCase().includes(search.toLowerCase()) ||
+          (t.note && t.note.toLowerCase().includes(search.toLowerCase()));
+        return matchType && matchSearch;
+      })
+      // Sort newest date first, then by transaction id descending
+      .sort((a, b) => {
+        const cmp = (b.date || '').localeCompare(a.date || '');
+        if (cmp !== 0) return cmp;
+        return (b.id || '').localeCompare(a.id || '');
+      });
+  }, [transactions, selectedDate, scope, currentMonthPrefix, filterType, search]);
+
+  // Grouped by Date for Clear Daily Synthesis
+  const groupedTransactions = useMemo(() => {
+    const groups = {};
+    filteredAndSorted.forEach(t => {
+      const d = t.date || 'Chưa chọn ngày';
+      if (!groups[d]) groups[d] = [];
+      groups[d].push(t);
     });
-  }, [transactions, filterType, search]);
+
+    return Object.entries(groups).map(([dateStr, items]) => {
+      let dayInc = 0;
+      let dayExp = 0;
+      let daySav = 0;
+      items.forEach(it => {
+        const a = Number(it.amount) || 0;
+        if (it.type === 'Thu') dayInc += a;
+        else if (it.type === 'Chi') dayExp += a;
+        else if (it.type === 'Tiết kiệm') daySav += a;
+      });
+      return { dateStr, items, dayInc, dayExp, daySav };
+    });
+  }, [filteredAndSorted]);
 
   const formatVND = (num) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
   };
+
+  const formatDateLabel = (dateStr) => {
+    if (!dateStr || dateStr === 'Chưa chọn ngày') return 'Chưa chọn ngày';
+    try {
+      const [y, m, d] = dateStr.split('-');
+      return `Ngày ${d}/${m}/${y}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   const handleAmountChange = (e) => {
     const rawVal = e.target.value.replace(/\D/g, '');
@@ -138,6 +221,12 @@ export default function FinFlow({ transactions, setTransactions }) {
     setShowModal(true);
   };
 
+  const openAddForDate = (customDate) => {
+    sound.playClick();
+    setDate(customDate || todayStr);
+    setShowModal(true);
+  };
+
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px 60px' }}>
       
@@ -159,7 +248,7 @@ export default function FinFlow({ transactions, setTransactions }) {
             <span>Gợi ý phân bổ chi tiêu</span>
           </button>
 
-          <button onClick={() => setShowModal(true)} className="btn-solid">
+          <button onClick={() => openAddForDate(selectedDate || todayStr)} className="btn-solid">
             <Plus size={15} />
             <span>Thêm giao dịch</span>
           </button>
@@ -188,11 +277,11 @@ export default function FinFlow({ transactions, setTransactions }) {
       </div>
 
       {/* Metrics Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
         
         <div className="zen-card" style={{ padding: '20px' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '500' }}>TỔNG THU NHẬP</div>
-          <div className="font-mono" style={{ fontSize: '1.4rem', fontWeight: '600', color: 'var(--accent-emerald)', marginTop: '8px' }}>
+          <div className="font-mono" style={{ fontSize: '1.4rem', fontWeight: '600', color: '#3B82F6', marginTop: '8px' }}>
             {formatVND(stats.income)}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Lương & các nguồn thu</div>
@@ -200,7 +289,7 @@ export default function FinFlow({ transactions, setTransactions }) {
 
         <div className="zen-card" style={{ padding: '20px' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '500' }}>TỔNG CHI TIÊU</div>
-          <div className="font-mono" style={{ fontSize: '1.4rem', fontWeight: '600', color: 'var(--accent-rose)', marginTop: '8px' }}>
+          <div className="font-mono" style={{ fontSize: '1.4rem', fontWeight: '600', color: '#EF4444', marginTop: '8px' }}>
             {formatVND(stats.expense)}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Thiết yếu & Mong muốn</div>
@@ -225,7 +314,7 @@ export default function FinFlow({ transactions, setTransactions }) {
       </div>
 
       {/* 50/30/20 Clean Progress */}
-      <div className="zen-card" style={{ padding: '24px', marginBottom: '32px' }}>
+      <div className="zen-card" style={{ padding: '24px', marginBottom: '28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <span style={{ fontSize: '0.95rem', fontWeight: '600', color: '#FFFFFF' }}>Hạn mức ngân sách 50/30/20</span>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Mục tiêu dựa trên thu nhập tháng</span>
@@ -237,7 +326,7 @@ export default function FinFlow({ transactions, setTransactions }) {
           <div style={{ padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
               <span style={{ color: '#E4E4E7', fontWeight: '500' }}>50% Thiết yếu</span>
-              <span className="font-mono" style={{ fontSize: '0.8rem', color: stats.needsSpent > stats.needsBudget ? 'var(--accent-rose)' : 'var(--text-secondary)' }}>
+              <span className="font-mono" style={{ fontSize: '0.8rem', color: stats.needsSpent > stats.needsBudget ? '#EF4444' : 'var(--text-secondary)' }}>
                 {Math.round((stats.needsSpent / stats.needsBudget) * 100)}%
               </span>
             </div>
@@ -245,7 +334,7 @@ export default function FinFlow({ transactions, setTransactions }) {
               <div style={{
                 height: '100%',
                 width: `${Math.min(100, (stats.needsSpent / stats.needsBudget) * 100)}%`,
-                background: stats.needsSpent > stats.needsBudget ? 'var(--accent-rose)' : '#FFFFFF'
+                background: stats.needsSpent > stats.needsBudget ? '#EF4444' : '#FFFFFF'
               }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -258,7 +347,7 @@ export default function FinFlow({ transactions, setTransactions }) {
           <div style={{ padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
               <span style={{ color: '#E4E4E7', fontWeight: '500' }}>30% Mong muốn</span>
-              <span className="font-mono" style={{ fontSize: '0.8rem', color: stats.wantsSpent > stats.wantsBudget ? 'var(--accent-rose)' : 'var(--text-secondary)' }}>
+              <span className="font-mono" style={{ fontSize: '0.8rem', color: stats.wantsSpent > stats.wantsBudget ? '#EF4444' : 'var(--text-secondary)' }}>
                 {Math.round((stats.wantsSpent / stats.wantsBudget) * 100)}%
               </span>
             </div>
@@ -266,7 +355,7 @@ export default function FinFlow({ transactions, setTransactions }) {
               <div style={{
                 height: '100%',
                 width: `${Math.min(100, (stats.wantsSpent / stats.wantsBudget) * 100)}%`,
-                background: stats.wantsSpent > stats.wantsBudget ? 'var(--accent-rose)' : '#A1A1AA'
+                background: stats.wantsSpent > stats.wantsBudget ? '#EF4444' : '#A1A1AA'
               }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -279,7 +368,7 @@ export default function FinFlow({ transactions, setTransactions }) {
           <div style={{ padding: '16px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '8px' }}>
               <span style={{ color: '#E4E4E7', fontWeight: '500' }}>20% Tiết kiệm</span>
-              <span className="font-mono" style={{ fontSize: '0.8rem', color: 'var(--accent-emerald)' }}>
+              <span className="font-mono" style={{ fontSize: '0.8rem', color: '#10B981' }}>
                 {Math.round((stats.savings / stats.savingsBudget) * 100)}%
               </span>
             </div>
@@ -287,7 +376,7 @@ export default function FinFlow({ transactions, setTransactions }) {
               <div style={{
                 height: '100%',
                 width: `${Math.min(100, (stats.savings / stats.savingsBudget) * 100)}%`,
-                background: 'var(--accent-emerald)'
+                background: '#10B981'
               }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -299,92 +388,235 @@ export default function FinFlow({ transactions, setTransactions }) {
         </div>
       </div>
 
-      {/* Transaction Table */}
+      {/* MONTHLY FINANCE CALENDAR COMPONENT */}
+      <MonthlyFinanceCalendar
+        transactions={transactions}
+        year={calMonth.year}
+        month={calMonth.month}
+        onChangeMonth={handleChangeMonth}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+        onResetMonth={handleResetMonth}
+      />
+
+      {/* TRANSACTIONS TABLE (SORTED & GROUPED CHRONOLOGICALLY BY DAY) */}
       <div className="zen-card" style={{ padding: '24px' }}>
         
-        {/* Controls */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+        {/* Controls Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
           
-          {/* Filters */}
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {['ALL', 'Chi', 'Thu', 'Tiết kiệm'].map(f => (
-              <button
-                key={f}
-                onClick={() => { sound.playClick(); setFilterType(f); }}
-                className={`tab-pill ${filterType === f ? 'active' : ''}`}
-                style={{ fontSize: '0.8rem' }}
-              >
-                {f === 'ALL' ? 'Tất cả' : f}
-              </button>
-            ))}
+          {/* Section Title & Scope */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1rem', fontWeight: '600', color: '#FFFFFF' }}>
+                {selectedDate ? `Giao dịch ${formatDateLabel(selectedDate)}` : `Giao dịch Tháng ${calMonth.month + 1}/${calMonth.year}`}
+              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                ({filteredAndSorted.length} giao dịch)
+              </span>
+            </div>
+
+            {/* Scope Switcher: Month vs All */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '6px', alignItems: 'center' }}>
+              {selectedDate ? (
+                <button
+                  onClick={() => { sound.playClick(); setSelectedDate(null); }}
+                  className="btn-ghost"
+                  style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#60A5FA' }}
+                >
+                  ← Trở về xem cả tháng {calMonth.month + 1}
+                </button>
+              ) : (
+                <div style={{ display: 'inline-flex', background: 'var(--bg-app)', padding: '2px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-subtle)' }}>
+                  <button
+                    onClick={() => { sound.playClick(); setScope('month'); }}
+                    style={{
+                      padding: '2px 8px',
+                      fontSize: '0.7rem',
+                      borderRadius: '4px',
+                      border: 'none',
+                      background: scope === 'month' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                      color: scope === 'month' ? '#FFFFFF' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Tháng {calMonth.month + 1}
+                  </button>
+                  <button
+                    onClick={() => { sound.playClick(); setScope('all'); }}
+                    style={{
+                      padding: '2px 8px',
+                      fontSize: '0.7rem',
+                      borderRadius: '4px',
+                      border: 'none',
+                      background: scope === 'all' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                      color: scope === 'all' ? '#FFFFFF' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Tất cả lịch sử
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Search */}
-          <div style={{ position: 'relative', width: '240px' }}>
-            <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
-            <input
-              type="text"
-              placeholder="Tìm kiếm..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="zen-input"
-              style={{ paddingLeft: '30px', fontSize: '0.8rem', padding: '6px 10px 6px 30px' }}
-            />
+          {/* Type Filter & Search */}
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            
+            {/* Type Filters */}
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {['ALL', 'Chi', 'Thu', 'Tiết kiệm'].map(f => (
+                <button
+                  key={f}
+                  onClick={() => { sound.playClick(); setFilterType(f); }}
+                  className={`tab-pill ${filterType === f ? 'active' : ''}`}
+                  style={{ fontSize: '0.75rem', padding: '5px 10px' }}
+                >
+                  {f === 'ALL' ? 'Tất cả' : f}
+                </button>
+              ))}
+            </div>
+
+            {/* Search */}
+            <div style={{ position: 'relative', width: '180px' }}>
+              <Search size={13} color="var(--text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+              <input
+                type="text"
+                placeholder="Tìm danh mục, ghi chú..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="zen-input"
+                style={{ paddingLeft: '28px', fontSize: '0.75rem', padding: '5px 8px 5px 28px', width: '100%' }}
+              />
+            </div>
           </div>
         </div>
 
-        {/* List */}
+        {/* CHRONOLOGICALLY SORTED & GROUPED LIST */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {filtered.length === 0 ? (
-            <div style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Chưa có giao dịch nào được ghi nhận. Bấm "+ Thêm giao dịch" để bắt đầu theo dõi thu chi.
+          {groupedTransactions.length === 0 ? (
+            <div style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              Không có giao dịch nào trong {selectedDate ? `ngày ${selectedDate}` : `khoảng thời gian này`}.
+              <div style={{ marginTop: '10px' }}>
+                <button
+                  onClick={() => openAddForDate(selectedDate || todayStr)}
+                  className="btn-ghost"
+                  style={{ fontSize: '0.78rem', padding: '6px 14px' }}
+                >
+                  + Thêm giao dịch ngay
+                </button>
+              </div>
             </div>
           ) : (
-            filtered.map(t => {
-              const isInc = t.type === 'Thu';
-              const isSav = t.type === 'Tiết kiệm';
+            groupedTransactions.map(group => {
+              const isGroupToday = group.dateStr === todayStr;
 
               return (
-                <div
-                  key={t.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 8px',
-                    borderBottom: '1px solid var(--border-subtle)',
-                    fontSize: '0.85rem'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <div style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: isInc ? 'var(--accent-emerald)' : isSav ? '#A78BFA' : 'var(--accent-rose)'
-                    }} />
-                    <div>
-                      <div style={{ color: '#FFFFFF', fontWeight: '500' }}>{t.category}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        {t.date} • {t.method} {t.note && `• "${t.note}"`}
-                      </div>
+                <div key={group.dateStr} style={{ marginBottom: '22px' }}>
+                  
+                  {/* Daily Section Header with Date & Subtotals */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '8px 12px',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      borderRadius: 'var(--radius-sm)',
+                      marginBottom: '8px',
+                      borderLeft: isGroupToday ? '3px solid #3B82F6' : '3px solid rgba(255, 255, 255, 0.15)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <CalendarIcon size={14} color={isGroupToday ? '#3B82F6' : 'var(--text-muted)'} />
+                      <span style={{ fontSize: '0.82rem', fontWeight: '600', color: isGroupToday ? '#FFFFFF' : '#E4E4E7' }}>
+                        {formatDateLabel(group.dateStr)}
+                      </span>
+                      {isGroupToday && (
+                        <span style={{ fontSize: '0.7rem', color: '#3B82F6', fontWeight: '600' }}>
+                          (Hôm nay)
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Daily Subtotals: Thu (Xanh dương) • Chi (Đỏ) */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '0.78rem' }}>
+                      {group.dayInc > 0 && (
+                        <span className="font-mono" style={{ color: '#3B82F6', fontWeight: '600' }}>
+                          +{formatVND(group.dayInc)}
+                        </span>
+                      )}
+                      {group.dayExp > 0 && (
+                        <span className="font-mono" style={{ color: '#EF4444', fontWeight: '600' }}>
+                          -{formatVND(group.dayExp)}
+                        </span>
+                      )}
+                      {group.daySav > 0 && (
+                        <span className="font-mono" style={{ color: '#A78BFA', fontWeight: '600' }}>
+                          +{formatVND(group.daySav)}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <span className="font-mono" style={{
-                      fontWeight: '600',
-                      color: isInc ? 'var(--accent-emerald)' : isSav ? '#A78BFA' : '#FFFFFF'
-                    }}>
-                      {isInc ? '+' : '-'}{formatVND(t.amount)}
-                    </span>
-                    <button
-                      onClick={() => handleDelete(t.id)}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', padding: '4px' }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                  {/* Individual Transaction Items */}
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {group.items.map(t => {
+                      const isInc = t.type === 'Thu';
+                      const isSav = t.type === 'Tiết kiệm';
+
+                      return (
+                        <div
+                          key={t.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 10px',
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                            fontSize: '0.84rem',
+                            borderRadius: '4px',
+                            transition: 'background 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{
+                              width: '7px',
+                              height: '7px',
+                              borderRadius: '50%',
+                              background: isInc ? '#3B82F6' : isSav ? '#A78BFA' : '#EF4444'
+                            }} />
+                            <div>
+                              <div style={{ color: '#FFFFFF', fontWeight: '500' }}>{t.category}</div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                {t.method} {t.note && `• "${t.note}"`}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <span className="font-mono" style={{
+                              fontWeight: '600',
+                              color: isInc ? '#3B82F6' : isSav ? '#A78BFA' : '#EF4444'
+                            }}>
+                              {isInc ? '+' : '-'}{formatVND(t.amount)}
+                            </span>
+                            <button
+                              onClick={() => handleDelete(t.id)}
+                              style={{ background: 'transparent', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', padding: '4px' }}
+                              title="Xoá giao dịch"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
+
                 </div>
               );
             })
@@ -442,7 +674,7 @@ export default function FinFlow({ transactions, setTransactions }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Số tiền (VND)</label>
                   {amount && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)', fontWeight: '600' }}>
+                    <span style={{ fontSize: '0.75rem', color: type === 'Thu' ? '#3B82F6' : '#EF4444', fontWeight: '600' }}>
                       {formatVND(Number(amount.replace(/\./g, '')))}
                     </span>
                   )}
@@ -451,11 +683,12 @@ export default function FinFlow({ transactions, setTransactions }) {
                   type="text"
                   inputMode="numeric"
                   placeholder="0"
-                  required
                   value={amount}
                   onChange={handleAmountChange}
                   className="zen-input font-mono"
-                  style={{ fontSize: '1.25rem', fontWeight: '600', letterSpacing: '0.02em' }}
+                  style={{ fontSize: '1.2rem', fontWeight: '600' }}
+                  autoFocus
+                  required
                 />
               </div>
 
@@ -466,59 +699,59 @@ export default function FinFlow({ transactions, setTransactions }) {
                   value={category}
                   onChange={e => {
                     setCategory(e.target.value);
-                    const found = CATEGORIES.find(c => c.name === e.target.value);
-                    if (found) setGroup(found.group);
+                    const c = CATEGORIES.find(item => item.name === e.target.value);
+                    if (c) setGroup(c.group);
                   }}
                   className="zen-input"
+                  style={{ width: '100%', fontSize: '0.85rem' }}
                 >
-                  {CATEGORIES
-                    .filter(c => type === 'Thu' ? c.type === 'Thu' : type === 'Tiết kiệm' ? c.type === 'Tiết kiệm' : c.type === 'Chi')
-                    .map(c => (
-                      <option key={c.name} value={c.name}>{c.name} ({c.group})</option>
-                    ))}
+                  {CATEGORIES.filter(c => c.type === type).map(c => (
+                    <option key={c.name} value={c.name}>{c.name}</option>
+                  ))}
                 </select>
               </div>
 
-              {/* Method & Date */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Phương thức</label>
-                  <select value={method} onChange={e => setMethod(e.target.value)} className="zen-input">
-                    <option value="Chuyển khoản">Chuyển khoản</option>
-                    <option value="Thẻ tín dụng">Thẻ tín dụng</option>
-                    <option value="Ví điện tử">Ví điện tử</option>
-                    <option value="Tiền mặt">Tiền mặt</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Ngày</label>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)} className="zen-input" />
-                </div>
+              {/* Date */}
+              <div>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Ngày giao dịch</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  className="zen-input font-mono"
+                  style={{ width: '100%', fontSize: '0.85rem' }}
+                  required
+                />
               </div>
 
               {/* Note */}
               <div>
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Ghi chú</label>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Ghi chú (Tùy chọn)</label>
                 <input
                   type="text"
-                  placeholder="Nội dung chi tiết..."
+                  placeholder="Chi tiết giao dịch..."
                   value={note}
                   onChange={e => setNote(e.target.value)}
                   className="zen-input"
+                  style={{ width: '100%', fontSize: '0.85rem' }}
                 />
               </div>
 
-              <button type="submit" className="btn-solid" style={{ marginTop: '8px', padding: '10px' }}>
-                Lưu giao dịch
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button type="button" onClick={() => setShowModal(false)} className="btn-ghost">
+                  Hủy
+                </button>
+                <button type="submit" className="btn-solid">
+                  Xác nhận
+                </button>
+              </div>
 
             </form>
-
           </div>
         </div>
       )}
 
-      {/* Budget Allocation Advisor Modal */}
+      {/* Budget Advisor Modal */}
       {showAdvisor && (
         <BudgetAdvisorModal onClose={() => setShowAdvisor(false)} />
       )}

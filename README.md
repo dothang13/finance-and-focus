@@ -22,6 +22,8 @@ Built with modern web technologies, Zenith runs entirely client-side with 100% l
 
 ### 💰 1. FinFlow — 50/30/20 Financial Management
 - **Budgeting System**: Organizes cash flow according to the proven **50/30/20 rule** (50% Needs, 30% Wants, 20% Savings).
+- **Monthly Finance Calendar**: Interactive calendar grid displaying daily income badges in blue (`+...`) and expenses in red (`-...`), complete with month/year navigation and 1-click day filtering.
+- **Chronological Day-Grouped Transactions**: All transactions are sorted chronologically by date (newest first) and grouped by day with clean daily headers and income/expense subtotals.
 - **Clean Number Formatting**: Human-friendly dot-separated amounts (e.g., `3.000.000đ`), clean typography without confusing slashed zeros.
 - **1-Click Quick Expense Presets**: Instant logging for daily expenses (coffee, lunch, groceries, fuel, salary) with one click.
 - **Independent Budget Allocation Advisor**: Enter monthly salary, rent, and utility costs to receive an instant recommended breakdown across food, transport, emergency savings, and flexible spending. Supports 1-click plan persistence to local storage.
@@ -74,12 +76,13 @@ finance-and-focus/
 │   └── fonts/                      # Offline Digital-7 font files
 ├── src/
 │   ├── components/
-│   │   ├── BudgetAdvisorModal.jsx  # Monthly budget allocation calculator
-│   │   ├── Dashboard.jsx           # Unified overview & streak tracker
-│   │   ├── FinFlow.jsx             # 50/30/20 Finance tracker
-│   │   ├── FlipClock.jsx           # 3D Mechanical flip clock
-│   │   ├── Header.jsx              # Navigation & sound selector
-│   │   ├── SevenSegmentClock.jsx   # Authentic 7-segment digital clock
+│   │   ├── BudgetAdvisorModal.jsx      # Monthly budget allocation calculator
+│   │   ├── Dashboard.jsx               # Unified overview & streak tracker
+│   │   ├── FinFlow.jsx                 # 50/30/20 Finance tracker
+│   │   ├── FlipClock.jsx               # 3D Mechanical flip clock
+│   │   ├── Header.jsx                  # Navigation & sound selector
+│   │   ├── MonthlyFinanceCalendar.jsx  # Monthly financial calendar grid
+│   │   ├── SevenSegmentClock.jsx       # Authentic 7-segment digital clock
 │   │   ├── StreakModal.jsx         # Consistency streak settings
 │   │   ├── StudyFlow.jsx           # Pomodoro timer, tasks & vocab studio
 │   │   └── SyncModal.jsx           # Peer QR device sync

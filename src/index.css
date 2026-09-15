@@ -631,3 +631,13 @@ body {
   border-radius: var(--radius-full);
   transition: width 0.4s ease;
 }
+
+/* ========================================================
+   MONTHLY FINANCE CALENDAR STYLES
+   ======================================================== */
+.calendar-day-cell:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-1px);
+}
+
