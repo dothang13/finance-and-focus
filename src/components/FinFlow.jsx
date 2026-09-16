@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Search, X, Calculator, Calendar as CalendarIcon, Filter } from 'lucide-react';
+import { Plus, Trash2, Search, X, Calculator, Calendar as CalendarIcon, Filter, Edit2 } from 'lucide-react';
 import { sound } from '../utils/audio';
 import BudgetAdvisorModal from './BudgetAdvisorModal';
 import MonthlyFinanceCalendar from './MonthlyFinanceCalendar';
@@ -23,6 +23,7 @@ const CATEGORIES = [
 
 export default function FinFlow({ transactions, setTransactions }) {
   const [showModal, setShowModal] = useState(false);
+  const [editingTx, setEditingTx] = useState(null);
   const [showAdvisor, setShowAdvisor] = useState(false);
   const [filterType, setFilterType] = useState('ALL');
   const [search, setSearch] = useState('');
@@ -180,49 +181,92 @@ export default function FinFlow({ transactions, setTransactions }) {
     setAmount(formatted);
   };
 
-  const handleAdd = (e) => {
+  const handleFormSubmit = (e) => {
     e.preventDefault();
     const rawNum = Number(amount.replace(/\./g, ''));
     if (!rawNum || rawNum <= 0) return;
 
     sound.playClick();
-    const newTx = {
-      id: Date.now().toString(),
-      date,
-      type,
-      category,
-      group,
-      amount: rawNum,
-      method,
-      note: note || category
-    };
 
-    setTransactions([newTx, ...transactions]);
+    if (editingTx) {
+      // Update existing transaction
+      setTransactions(transactions.map(t => t.id === editingTx.id ? {
+        ...t,
+        date,
+        type,
+        category,
+        group,
+        amount: rawNum,
+        method,
+        note: note || category
+      } : t));
+    } else {
+      // Create new transaction
+      const newTx = {
+        id: Date.now().toString(),
+        date,
+        type,
+        category,
+        group,
+        amount: rawNum,
+        method,
+        note: note || category
+      };
+      setTransactions([newTx, ...transactions]);
+    }
+
     setShowModal(false);
+    setEditingTx(null);
     setAmount('');
     setNote('');
+  };
+
+  const openEdit = (tx) => {
+    sound.playClick();
+    setEditingTx(tx);
+    setType(tx.type || 'Chi');
+    setCategory(tx.category || 'Ăn uống & Nhu yếu phẩm');
+    setGroup(tx.group || 'Thiết yếu');
+    setAmount(tx.amount ? String(tx.amount).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
+    setMethod(tx.method || 'Chuyển khoản');
+    setNote(tx.note || '');
+    setDate(tx.date || todayStr);
+    setShowModal(true);
   };
 
   const handleDelete = (id) => {
     sound.playClick();
     if (window.confirm('Xác nhận xoá giao dịch này?')) {
       setTransactions(transactions.filter(t => t.id !== id));
+      if (editingTx && editingTx.id === id) {
+        setEditingTx(null);
+        setShowModal(false);
+      }
     }
   };
 
   const handleQuickPreset = (preset) => {
     sound.playClick();
+    setEditingTx(null);
     setType(preset.type);
     setCategory(preset.category);
     setGroup(preset.group);
     setAmount(preset.amount ? String(preset.amount).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '');
     setMethod(preset.method || 'Chuyển khoản');
     setNote(preset.note || preset.category);
+    setDate(selectedDate || todayStr);
     setShowModal(true);
   };
 
   const openAddForDate = (customDate) => {
     sound.playClick();
+    setEditingTx(null);
+    setType('Chi');
+    setCategory('Ăn uống & Nhu yếu phẩm');
+    setGroup('Thiết yếu');
+    setAmount('');
+    setMethod('Chuyển khoản');
+    setNote('');
     setDate(customDate || todayStr);
     setShowModal(true);
   };
@@ -597,20 +641,31 @@ export default function FinFlow({ transactions, setTransactions }) {
                             </div>
                           </div>
 
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <span className="font-mono" style={{
                               fontWeight: '600',
                               color: isInc ? '#3B82F6' : isSav ? '#A78BFA' : '#EF4444'
                             }}>
                               {isInc ? '+' : '-'}{formatVND(t.amount)}
                             </span>
-                            <button
-                              onClick={() => handleDelete(t.id)}
-                              style={{ background: 'transparent', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', padding: '4px' }}
-                              title="Xoá giao dịch"
-                            >
-                              <Trash2 size={13} />
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                              <button
+                                onClick={() => openEdit(t)}
+                                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px 6px', borderRadius: '4px' }}
+                                title="Sửa giao dịch (ngày, danh mục, số tiền, ghi chú...)"
+                                className="btn-ghost"
+                              >
+                                <Edit2 size={13} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(t.id)}
+                                style={{ background: 'transparent', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', padding: '4px 6px', borderRadius: '4px' }}
+                                title="Xoá giao dịch"
+                                className="btn-ghost"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -625,19 +680,28 @@ export default function FinFlow({ transactions, setTransactions }) {
 
       </div>
 
-      {/* Clean Add Modal */}
+      {/* Clean Add / Edit Modal */}
       {showModal && (
-        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
+        <div className="modal-backdrop" onClick={() => { setShowModal(false); setEditingTx(null); }}>
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ padding: '24px' }}>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <span style={{ fontSize: '1rem', fontWeight: '600', color: '#FFFFFF' }}>Thêm giao dịch</span>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div>
+                <span style={{ fontSize: '1rem', fontWeight: '600', color: '#FFFFFF' }}>
+                  {editingTx ? 'Chỉnh sửa giao dịch' : 'Thêm giao dịch'}
+                </span>
+                {editingTx && (
+                  <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    Chỉnh sửa lại ngày, danh mục hoặc số tiền nếu nhập nhầm
+                  </p>
+                )}
+              </div>
+              <button onClick={() => { setShowModal(false); setEditingTx(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               
               {/* Type */}
               <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-app)', padding: '3px', borderRadius: 'var(--radius-sm)' }}>
@@ -738,11 +802,11 @@ export default function FinFlow({ transactions, setTransactions }) {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button type="button" onClick={() => setShowModal(false)} className="btn-ghost">
+                <button type="button" onClick={() => { setShowModal(false); setEditingTx(null); }} className="btn-ghost">
                   Hủy
                 </button>
                 <button type="submit" className="btn-solid">
-                  Xác nhận
+                  {editingTx ? 'Lưu thay đổi' : 'Xác nhận'}
                 </button>
               </div>
 

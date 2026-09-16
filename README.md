@@ -25,6 +25,7 @@ Built with modern web technologies, Zenith runs entirely client-side with 100% l
 - **Monthly Finance Calendar**: Interactive calendar grid displaying daily income badges in blue (`+...`) and expenses in red (`-...`), complete with month/year navigation and 1-click day filtering.
 - **Chronological Day-Grouped Transactions**: All transactions are sorted chronologically by date (newest first) and grouped by day with clean daily headers and income/expense subtotals.
 - **Clean Number Formatting**: Human-friendly dot-separated amounts (e.g., `3.000.000đ`), clean typography without confusing slashed zeros.
+- **Transaction Editing & Management**: Easily edit any transaction (change date, category, amount, note, or type) with instant recalculation across the monthly calendar and daily subtotals, eliminating accidental data entry errors.
 - **1-Click Quick Expense Presets**: Instant logging for daily expenses (coffee, lunch, groceries, fuel, salary) with one click.
 - **Independent Budget Allocation Advisor**: Enter monthly salary, rent, and utility costs to receive an instant recommended breakdown across food, transport, emergency savings, and flexible spending. Supports 1-click plan persistence to local storage.
 
