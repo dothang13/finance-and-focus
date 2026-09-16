@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { sound } from '../utils/audio';
 import { ArrowRight, Plus, Clock } from 'lucide-react';
+import ExpenseDonutChart from './ExpenseDonutChart';
 
 export default function Dashboard({ transactions, tasks, streak, setActiveTab, onOpenQuickAdd }) {
   
@@ -101,6 +102,9 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
         </div>
 
       </div>
+
+      {/* Spending Breakdown & Donut Chart */}
+      <ExpenseDonutChart transactions={transactions} />
 
       {/* Dual Columns */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>

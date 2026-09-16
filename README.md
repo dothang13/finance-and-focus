@@ -22,6 +22,8 @@ Built with modern web technologies, Zenith runs entirely client-side with 100% l
 
 ### 💰 1. FinFlow — 50/30/20 Financial Management
 - **Budgeting System**: Organizes cash flow according to the proven **50/30/20 rule** (50% Needs, 30% Wants, 20% Savings).
+- **Smart Note Auto-Categorization (⚡ Nhận diện thông minh)**: Real-time keyword detection when typing into the transaction note (e.g., typing "đổ xăng", "tiền trọ", "cà phê", "phở", "thuốc") automatically selects the corresponding category and 50/30/20 group (Needs/Wants/Savings), preventing accidental misclassifications.
+- **Interactive Expense Donut Chart (Biểu đồ cơ cấu chi tiêu)**: Modern dashboard statistics chart breaking down where most of your money went, complete with interactive slice hover animations, central totals, dynamic insight banner ("Phần lớn tiền của bạn dành cho..."), and percentage progress bars.
 - **Monthly Finance Calendar**: Interactive calendar grid displaying daily income badges in blue (`+...`) and expenses in red (`-...`), complete with month/year navigation and 1-click day filtering.
 - **Chronological Day-Grouped Transactions**: All transactions are sorted chronologically by date (newest first) and grouped by day with clean daily headers and income/expense subtotals.
 - **Clean Number Formatting**: Human-friendly dot-separated amounts (e.g., `3.000.000đ`), clean typography without confusing slashed zeros.

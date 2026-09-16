@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Search, X, Calculator, Calendar as CalendarIcon, Filter, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Search, X, Calculator, Calendar as CalendarIcon, Filter, Edit2, Zap } from 'lucide-react';
 import { sound } from '../utils/audio';
+import { detectCategoryFromNote } from '../utils/categorizer';
 import BudgetAdvisorModal from './BudgetAdvisorModal';
 import MonthlyFinanceCalendar from './MonthlyFinanceCalendar';
 
@@ -45,6 +46,7 @@ export default function FinFlow({ transactions, setTransactions }) {
   const [method, setMethod] = useState('Chuyển khoản');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(today.toISOString().split('T')[0]);
+  const [detectedCategory, setDetectedCategory] = useState(null);
 
   const handleChangeMonth = (delta) => {
     setCalMonth(prev => {
@@ -181,6 +183,20 @@ export default function FinFlow({ transactions, setTransactions }) {
     setAmount(formatted);
   };
 
+  const handleNoteChange = (e) => {
+    const val = e.target.value;
+    setNote(val);
+    const match = detectCategoryFromNote(val);
+    if (match) {
+      setCategory(match.category);
+      setGroup(match.group);
+      setType(match.type);
+      setDetectedCategory(match);
+    } else {
+      setDetectedCategory(null);
+    }
+  };
+
   const handleFormSubmit = (e) => {
     e.preventDefault();
     const rawNum = Number(amount.replace(/\./g, ''));
@@ -219,6 +235,7 @@ export default function FinFlow({ transactions, setTransactions }) {
     setEditingTx(null);
     setAmount('');
     setNote('');
+    setDetectedCategory(null);
   };
 
   const openEdit = (tx) => {
@@ -231,6 +248,7 @@ export default function FinFlow({ transactions, setTransactions }) {
     setMethod(tx.method || 'Chuyển khoản');
     setNote(tx.note || '');
     setDate(tx.date || todayStr);
+    setDetectedCategory(null);
     setShowModal(true);
   };
 
@@ -240,6 +258,7 @@ export default function FinFlow({ transactions, setTransactions }) {
       setTransactions(transactions.filter(t => t.id !== id));
       if (editingTx && editingTx.id === id) {
         setEditingTx(null);
+        setDetectedCategory(null);
         setShowModal(false);
       }
     }
@@ -255,6 +274,7 @@ export default function FinFlow({ transactions, setTransactions }) {
     setMethod(preset.method || 'Chuyển khoản');
     setNote(preset.note || preset.category);
     setDate(selectedDate || todayStr);
+    setDetectedCategory(null);
     setShowModal(true);
   };
 
@@ -268,6 +288,7 @@ export default function FinFlow({ transactions, setTransactions }) {
     setMethod('Chuyển khoản');
     setNote('');
     setDate(customDate || todayStr);
+    setDetectedCategory(null);
     setShowModal(true);
   };
 
@@ -717,7 +738,7 @@ export default function FinFlow({ transactions, setTransactions }) {
 
       {/* Clean Add / Edit Modal */}
       {showModal && (
-        <div className="modal-backdrop" onClick={() => { setShowModal(false); setEditingTx(null); }}>
+        <div className="modal-backdrop" onClick={() => { setShowModal(false); setEditingTx(null); setDetectedCategory(null); }}>
           <div className="modal-box" onClick={e => e.stopPropagation()} style={{ padding: '24px' }}>
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
@@ -731,7 +752,7 @@ export default function FinFlow({ transactions, setTransactions }) {
                   </p>
                 )}
               </div>
-              <button onClick={() => { setShowModal(false); setEditingTx(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <button onClick={() => { setShowModal(false); setEditingTx(null); setDetectedCategory(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 <X size={16} />
               </button>
             </div>
@@ -915,21 +936,69 @@ export default function FinFlow({ transactions, setTransactions }) {
                 />
               </div>
 
-              {/* Note */}
+              {/* Note with Smart Auto-Categorization */}
               <div>
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Ghi chú (Tùy chọn)</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Ghi chú (Tự động nhận diện danh mục)</label>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>VD: xăng, phở, cà phê, trọ...</span>
+                </div>
                 <input
                   type="text"
-                  placeholder="Chi tiết giao dịch..."
+                  placeholder="Nhập ghi chú (VD: đổ xăng 50k, tiền trọ, cf Highlands...)"
                   value={note}
-                  onChange={e => setNote(e.target.value)}
+                  onChange={handleNoteChange}
                   className="zen-input"
                   style={{ width: '100%', fontSize: '0.85rem' }}
                 />
+
+                {/* Auto-detected Confirmation Chip */}
+                {detectedCategory && (
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '0.75rem',
+                    gap: '8px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#93C5FD' }}>
+                      <Zap size={13} color="#FBBF24" />
+                      <span>Nhận diện từ <strong>"{detectedCategory.matchedKeyword}"</strong>:</span>
+                      <span style={{ color: '#FFFFFF', fontWeight: '600' }}>{detectedCategory.category}</span>
+                    </div>
+                    <span style={{
+                      fontSize: '0.68rem',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontWeight: '600',
+                      background: detectedCategory.group === 'Thiết yếu'
+                        ? 'rgba(245, 158, 11, 0.2)'
+                        : detectedCategory.group === 'Mong muốn'
+                        ? 'rgba(168, 85, 247, 0.2)'
+                        : 'rgba(16, 185, 129, 0.2)',
+                      color: detectedCategory.group === 'Thiết yếu'
+                        ? '#FBBF24'
+                        : detectedCategory.group === 'Mong muốn'
+                        ? '#D8B4FE'
+                        : '#6EE7B7',
+                      border: detectedCategory.group === 'Thiết yếu'
+                        ? '1px solid rgba(245, 158, 11, 0.4)'
+                        : detectedCategory.group === 'Mong muốn'
+                        ? '1px solid rgba(168, 85, 247, 0.4)'
+                        : '1px solid rgba(16, 185, 129, 0.4)'
+                    }}>
+                      {detectedCategory.group === 'Thiết yếu' ? '50% Thiết yếu' : detectedCategory.group === 'Mong muốn' ? '30% Mong muốn' : detectedCategory.group === 'Tiết kiệm' ? '20% Tiết kiệm' : 'Thu nhập'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button type="button" onClick={() => { setShowModal(false); setEditingTx(null); }} className="btn-ghost">
+                <button type="button" onClick={() => { setShowModal(false); setEditingTx(null); setDetectedCategory(null); }} className="btn-ghost">
                   Hủy
                 </button>
                 <button type="submit" className="btn-solid">
