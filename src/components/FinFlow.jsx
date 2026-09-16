@@ -634,7 +634,42 @@ export default function FinFlow({ transactions, setTransactions }) {
                               background: isInc ? '#3B82F6' : isSav ? '#A78BFA' : '#EF4444'
                             }} />
                             <div>
-                              <div style={{ color: '#FFFFFF', fontWeight: '500' }}>{t.category}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span style={{ color: '#FFFFFF', fontWeight: '500' }}>{t.category}</span>
+                                {t.group && (
+                                  <span
+                                    style={{
+                                      fontSize: '0.66rem',
+                                      padding: '1px 6px',
+                                      borderRadius: '4px',
+                                      fontWeight: '600',
+                                      background: t.group === 'Thiết yếu'
+                                        ? 'rgba(245, 158, 11, 0.12)'
+                                        : t.group === 'Mong muốn'
+                                        ? 'rgba(168, 85, 247, 0.12)'
+                                        : t.group === 'Tiết kiệm'
+                                        ? 'rgba(16, 185, 129, 0.12)'
+                                        : 'rgba(59, 130, 246, 0.12)',
+                                      color: t.group === 'Thiết yếu'
+                                        ? '#FBBF24'
+                                        : t.group === 'Mong muốn'
+                                        ? '#D8B4FE'
+                                        : t.group === 'Tiết kiệm'
+                                        ? '#6EE7B7'
+                                        : '#93C5FD',
+                                      border: t.group === 'Thiết yếu'
+                                        ? '1px solid rgba(245, 158, 11, 0.25)'
+                                        : t.group === 'Mong muốn'
+                                        ? '1px solid rgba(168, 85, 247, 0.25)'
+                                        : t.group === 'Tiết kiệm'
+                                        ? '1px solid rgba(16, 185, 129, 0.25)'
+                                        : '1px solid rgba(59, 130, 246, 0.25)'
+                                    }}
+                                  >
+                                    {t.group === 'Thiết yếu' ? '50% Thiết yếu' : t.group === 'Mong muốn' ? '30% Mong muốn' : t.group === 'Tiết kiệm' ? '20% Tiết kiệm' : 'Thu nhập'}
+                                  </span>
+                                )}
+                              </div>
                               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                                 {t.method} {t.note && `• "${t.note}"`}
                               </div>
@@ -756,9 +791,45 @@ export default function FinFlow({ transactions, setTransactions }) {
                 />
               </div>
 
-              {/* Category */}
+              {/* Category & 50/30/20 Group Indicator */}
               <div>
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>Danh mục</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Danh mục</label>
+                  {group && (
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: '600',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        background: group === 'Thiết yếu'
+                          ? 'rgba(245, 158, 11, 0.14)'
+                          : group === 'Mong muốn'
+                          ? 'rgba(168, 85, 247, 0.14)'
+                          : group === 'Tiết kiệm'
+                          ? 'rgba(16, 185, 129, 0.14)'
+                          : 'rgba(59, 130, 246, 0.14)',
+                        color: group === 'Thiết yếu'
+                          ? '#FBBF24'
+                          : group === 'Mong muốn'
+                          ? '#D8B4FE'
+                          : group === 'Tiết kiệm'
+                          ? '#6EE7B7'
+                          : '#93C5FD',
+                        border: group === 'Thiết yếu'
+                          ? '1px solid rgba(245, 158, 11, 0.3)'
+                          : group === 'Mong muốn'
+                          ? '1px solid rgba(168, 85, 247, 0.3)'
+                          : group === 'Tiết kiệm'
+                          ? '1px solid rgba(16, 185, 129, 0.3)'
+                          : '1px solid rgba(59, 130, 246, 0.3)'
+                      }}
+                    >
+                      {group === 'Thiết yếu' ? '📌 50% Thiết yếu' : group === 'Mong muốn' ? '✨ 30% Mong muốn' : group === 'Tiết kiệm' ? '💰 20% Tiết kiệm' : '💼 Thu nhập'}
+                    </span>
+                  )}
+                </div>
+
                 <select
                   value={category}
                   onChange={e => {
@@ -769,10 +840,66 @@ export default function FinFlow({ transactions, setTransactions }) {
                   className="zen-input"
                   style={{ width: '100%', fontSize: '0.85rem' }}
                 >
-                  {CATEGORIES.filter(c => c.type === type).map(c => (
-                    <option key={c.name} value={c.name}>{c.name}</option>
-                  ))}
+                  {type === 'Chi' ? (
+                    <>
+                      <optgroup label="50% THIẾT YẾU (Bắt buộc: nhà ở, ăn uống, đi lại, y tế)">
+                        {CATEGORIES.filter(c => c.type === 'Chi' && c.group === 'Thiết yếu').map(c => (
+                          <option key={c.name} value={c.name}>{c.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="30% MONG MUỐN (Linh hoạt: cà phê, mua sắm, giải trí, khóa học)">
+                        {CATEGORIES.filter(c => c.type === 'Chi' && c.group === 'Mong muốn').map(c => (
+                          <option key={c.name} value={c.name}>{c.name}</option>
+                        ))}
+                      </optgroup>
+                    </>
+                  ) : (
+                    CATEGORIES.filter(c => c.type === type).map(c => (
+                      <option key={c.name} value={c.name}>{c.name}</option>
+                    ))
+                  )}
                 </select>
+
+                {/* 50/30/20 Group switch for Chi expenses */}
+                {type === 'Chi' && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.72rem' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Phân bổ ngân sách:</span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={() => { sound.playClick(); setGroup('Thiết yếu'); }}
+                        style={{
+                          background: group === 'Thiết yếu' ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                          color: group === 'Thiết yếu' ? '#FBBF24' : 'var(--text-muted)',
+                          border: group === 'Thiết yếu' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-subtle)',
+                          borderRadius: '4px',
+                          padding: '2px 8px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: group === 'Thiết yếu' ? '600' : '400'
+                        }}
+                      >
+                        50% Thiết yếu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { sound.playClick(); setGroup('Mong muốn'); }}
+                        style={{
+                          background: group === 'Mong muốn' ? 'rgba(168, 85, 247, 0.2)' : 'transparent',
+                          color: group === 'Mong muốn' ? '#D8B4FE' : 'var(--text-muted)',
+                          border: group === 'Mong muốn' ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid var(--border-subtle)',
+                          borderRadius: '4px',
+                          padding: '2px 8px',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                          fontWeight: group === 'Mong muốn' ? '600' : '400'
+                        }}
+                      >
+                        30% Mong muốn
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Date */}
