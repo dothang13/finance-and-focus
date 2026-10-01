@@ -4,27 +4,52 @@ import { ArrowRight, Plus, Clock } from 'lucide-react';
 import ExpenseDonutChart from './ExpenseDonutChart';
 
 export default function Dashboard({ transactions, tasks, streak, setActiveTab, onOpenQuickAdd }) {
-  
+  const today = new Date();
+  const currentMonthNum = today.getMonth() + 1;
+  const currentMonthPrefix = `${today.getFullYear()}-${String(currentMonthNum).padStart(2, '0')}`;
+
   const fin = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    let savings = 0;
+    let allTimeIncome = 0;
+    let allTimeExpense = 0;
+    let allTimeSavings = 0;
+
+    let thisMonthIncome = 0;
+    let thisMonthExpense = 0;
+    let thisMonthSavings = 0;
 
     transactions.forEach(t => {
       const a = Number(t.amount) || 0;
-      if (t.type === 'Thu') income += a;
-      else if (t.type === 'Chi') expense += a;
-      else if (t.type === 'Tiết kiệm') savings += a;
+      const isThisMonth = t.date && t.date.startsWith(currentMonthPrefix);
+
+      if (t.type === 'Thu') {
+        allTimeIncome += a;
+        if (isThisMonth) thisMonthIncome += a;
+      } else if (t.type === 'Chi') {
+        allTimeExpense += a;
+        if (isThisMonth) thisMonthExpense += a;
+      } else if (t.type === 'Tiết kiệm') {
+        allTimeSavings += a;
+        if (isThisMonth) thisMonthSavings += a;
+      }
     });
 
+    const monthRate = thisMonthIncome > 0 ? Math.round((thisMonthSavings / thisMonthIncome) * 100) : 0;
+
     return {
-      income,
-      expense,
-      savings,
-      net: income - expense,
-      rate: income > 0 ? Math.round((savings / income) * 100) : 0
+      allTimeIncome,
+      allTimeExpense,
+      allTimeNet: allTimeIncome - allTimeExpense,
+      thisMonthIncome,
+      thisMonthExpense,
+      thisMonthSavings,
+      thisMonthNet: thisMonthIncome - thisMonthExpense,
+      rate: monthRate
     };
-  }, [transactions]);
+  }, [transactions, currentMonthPrefix]);
+
+  const thisMonthTransactions = useMemo(() => {
+    return transactions.filter(t => t.date && t.date.startsWith(currentMonthPrefix));
+  }, [transactions, currentMonthPrefix]);
 
   const formatVND = (num) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
@@ -62,22 +87,27 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '32px' }}>
         
         <div className="zen-card" style={{ padding: '20px' }}>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>SỐ DƯ KHẢ DỤNG</div>
-          <div className="font-mono" style={{ fontSize: '1.5rem', fontWeight: '600', color: '#FFFFFF', marginTop: '8px' }}>
-            {formatVND(fin.net)}
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>SỐ DƯ TÍCH LŨY (VÍ)</div>
+          <div className="font-mono" style={{ fontSize: '1.5rem', fontWeight: '600', color: fin.allTimeNet >= 0 ? '#FFFFFF' : 'var(--accent-rose)', marginTop: '8px' }}>
+            {formatVND(fin.allTimeNet)}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Thu: {formatVND(fin.income)}
+            Thu tháng {currentMonthNum}: +{formatVND(fin.thisMonthIncome)}
           </div>
         </div>
 
         <div className="zen-card" style={{ padding: '20px' }}>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>TỔNG ĐÃ CHI THÁNG {new Date().getMonth() + 1}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>TỔNG ĐÃ CHI THÁNG {currentMonthNum}</div>
+            <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(244, 63, 94, 0.12)', color: 'var(--accent-rose)' }}>
+              Tháng này
+            </span>
+          </div>
           <div className="font-mono" style={{ fontSize: '1.5rem', fontWeight: '600', color: 'var(--accent-rose)', marginTop: '8px' }}>
-            {formatVND(fin.expense)}
+            {formatVND(fin.thisMonthExpense)}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Bao gồm thiết yếu & mong muốn
+            {fin.thisMonthNet >= 0 ? `Dư thu-chi tháng: +${formatVND(fin.thisMonthNet)}` : `Bội chi tháng: -${formatVND(Math.abs(fin.thisMonthNet))}`}
           </div>
         </div>
 
@@ -103,8 +133,10 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
 
       </div>
 
-      {/* Spending Breakdown & Donut Chart */}
-      <ExpenseDonutChart transactions={transactions} />
+      {/* Spending Breakdown & Donut Chart (Current Month Priority) */}
+      <ExpenseDonutChart
+        transactions={thisMonthTransactions.length > 0 ? thisMonthTransactions : transactions}
+      />
 
       {/* Dual Columns */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { sound } from '../utils/audio';
 
 const WEEKDAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
@@ -26,11 +26,13 @@ export default function MonthlyFinanceCalendar({
   year,
   month, // 0-indexed: 0 = Jan, 8 = Sep
   onChangeMonth,
+  onSelectYearMonth,
   selectedDate,
   onSelectDate,
   onResetMonth
 }) {
   const today = new Date();
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   // Pre-calculate daily totals from transactions
@@ -133,7 +135,7 @@ export default function MonthlyFinanceCalendar({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
         
         {/* Month Navigator */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <button
               onClick={() => { sound.playClick(); onChangeMonth(-1); }}
@@ -144,9 +146,55 @@ export default function MonthlyFinanceCalendar({
               <ChevronLeft size={16} />
             </button>
 
-            <span style={{ fontSize: '1rem', fontWeight: '600', color: '#FFFFFF', minWidth: '135px', textAlign: 'center' }}>
-              {monthLabel}
-            </span>
+            {onSelectYearMonth ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <select
+                  value={month}
+                  onChange={(e) => { sound.playClick(); onSelectYearMonth(year, Number(e.target.value)); }}
+                  style={{
+                    background: 'var(--bg-card-hover)',
+                    border: '1px solid var(--border-medium)',
+                    color: '#FFFFFF',
+                    borderRadius: 'var(--radius-xs)',
+                    padding: '4px 8px',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i} value={i}>
+                      Tháng {i + 1}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={year}
+                  onChange={(e) => { sound.playClick(); onSelectYearMonth(Number(e.target.value), month); }}
+                  style={{
+                    background: 'var(--bg-card-hover)',
+                    border: '1px solid var(--border-medium)',
+                    color: '#FFFFFF',
+                    borderRadius: 'var(--radius-xs)',
+                    padding: '4px 8px',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(y => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <span style={{ fontSize: '1rem', fontWeight: '600', color: '#FFFFFF', minWidth: '135px', textAlign: 'center' }}>
+                {monthLabel}
+              </span>
+            )}
 
             <button
               onClick={() => { sound.playClick(); onChangeMonth(1); }}
@@ -161,10 +209,17 @@ export default function MonthlyFinanceCalendar({
           <button
             onClick={() => { sound.playClick(); onResetMonth(); }}
             className="btn-ghost"
-            style={{ fontSize: '0.74rem', padding: '4px 10px', color: 'var(--text-secondary)' }}
+            style={{
+              fontSize: '0.74rem',
+              padding: '4px 10px',
+              color: isCurrentMonth ? 'var(--accent-emerald)' : 'var(--text-secondary)',
+              background: isCurrentMonth ? 'rgba(16, 185, 129, 0.08)' : 'transparent',
+              border: isCurrentMonth ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-xs)'
+            }}
             title="Trở về tháng hiện tại"
           >
-            Hôm nay
+            {isCurrentMonth ? '● Tháng này' : '↺ Về tháng này'}
           </button>
         </div>
 
