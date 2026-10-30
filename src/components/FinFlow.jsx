@@ -100,6 +100,9 @@ export default function FinFlow({ transactions, setTransactions }) {
       else if (t.type === 'Tiết kiệm') allTimeSavings += a;
     });
 
+    // Số dư tiền mặt ví chi tiêu = Tổng Thu - Chi - Tiết kiệm đã cất
+    const allTimeSpendable = allTimeIncome - allTimeExpense - allTimeSavings;
+    // Tổng tài sản tích lũy (bao gồm cả các quỹ tiết kiệm) = Thu - Chi
     const allTimeNet = allTimeIncome - allTimeExpense;
 
     // 2. Statistics scoped to the chosen view (month vs all)
@@ -122,16 +125,30 @@ export default function FinFlow({ transactions, setTransactions }) {
       }
     });
 
-    const net = income - expense;
+    // Dư khả dụng thực tế còn lại cho chi tiêu = Thu - Chi - Tiết kiệm
+    const net = income - expense - savings;
+    const rawNet = income - expense;
     const rate = income > 0 ? Math.round((savings / income) * 100) : 0;
     const base = income > 0 ? income : 30000000;
+
+    // Tính toán số ngày còn lại trong tháng để gợi ý hạn mức tiêu mỗi ngày
+    let daysRemaining = 1;
+    let dailyBudgetRemaining = 0;
+    if (isCurrentMonth) {
+      const lastDayOfMonth = new Date(calMonth.year, calMonth.month + 1, 0).getDate();
+      const currentDay = today.getDate();
+      daysRemaining = Math.max(1, lastDayOfMonth - currentDay + 1);
+      dailyBudgetRemaining = net > 0 ? Math.round(net / daysRemaining) : 0;
+    }
 
     return {
       income,
       expense,
       savings,
       net,
+      rawNet,
       allTimeNet,
+      allTimeSpendable,
       allTimeSavings,
       rate,
       needsSpent,
@@ -139,9 +156,11 @@ export default function FinFlow({ transactions, setTransactions }) {
       wantsSpent,
       wantsBudget: Math.round(base * 0.30),
       savingsBudget: Math.round(base * 0.20),
+      daysRemaining,
+      dailyBudgetRemaining,
       count: activeTxs.length
     };
-  }, [transactions, selectedMonthTransactions, scope]);
+  }, [transactions, selectedMonthTransactions, scope, isCurrentMonth, calMonth, today]);
 
   // Chronologically Sorted Transactions (Newest Date First)
   const filteredAndSorted = useMemo(() => {
@@ -625,14 +644,28 @@ export default function FinFlow({ transactions, setTransactions }) {
         </div>
 
         <div className="zen-card" style={{ padding: '20px' }}>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '500' }}>
-            {scope === 'month' ? `DƯ THÁNG ${calMonth.month + 1}` : 'DƯ KHẢ DỤNG'}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '500' }}>
+              {scope === 'month' ? `DƯ KHẢ DỤNG THÁNG ${calMonth.month + 1}` : 'DƯ KHẢ DỤNG CHI TIÊU'}
+            </div>
+            {stats.savings > 0 && (
+              <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(167, 139, 250, 0.15)', color: '#A78BFA' }}>
+                Đã trừ tiết kiệm
+              </span>
+            )}
           </div>
-          <div className="font-mono" style={{ fontSize: '1.4rem', fontWeight: '600', color: stats.net >= 0 ? '#FFFFFF' : '#EF4444', marginTop: '8px' }}>
+          <div className="font-mono" style={{ fontSize: '1.4rem', fontWeight: '600', color: stats.net >= 0 ? 'var(--accent-emerald)' : '#EF4444', marginTop: '8px' }}>
             {stats.net >= 0 ? '+' : ''}{formatVND(stats.net)}
           </div>
           <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Số dư lũy kế ví: <strong className="font-mono" style={{ color: '#FFFFFF' }}>{formatVND(stats.allTimeNet)}</strong>
+            {stats.savings > 0 ? (
+              <span>Đã cất tiết kiệm: <strong className="font-mono" style={{ color: '#A78BFA' }}>-{formatVND(stats.savings)}</strong></span>
+            ) : (
+              <span>Thu - Chi (Chưa trích tiết kiệm)</span>
+            )}
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+            Ví khả dụng: <strong className="font-mono" style={{ color: '#FFFFFF' }}>{formatVND(stats.allTimeSpendable)}</strong>
           </div>
         </div>
 
@@ -649,6 +682,71 @@ export default function FinFlow({ transactions, setTransactions }) {
         </div>
 
       </div>
+
+      {/* Daily Spending Runway (Chỉ dẫn hạn mức chi tiêu hàng ngày còn lại) */}
+      {isCurrentMonth && scope === 'month' && (
+        <div style={{
+          padding: '14px 20px',
+          borderRadius: 'var(--radius-md)',
+          background: stats.net >= 0
+            ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(59, 130, 246, 0.04) 100%)'
+            : 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(245, 158, 11, 0.04) 100%)',
+          border: stats.net >= 0 ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.3)',
+          marginBottom: '24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              background: stats.net >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <Zap size={18} color={stats.net >= 0 ? 'var(--accent-emerald)' : '#EF4444'} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#FFFFFF' }}>
+                {stats.net >= 0 ? (
+                  <>
+                    Hạn mức tiêu mỗi ngày: <span className="font-mono" style={{ color: 'var(--accent-emerald)' }}>~{formatVND(stats.dailyBudgetRemaining)}/ngày</span>
+                  </>
+                ) : (
+                  <>
+                    ⚠️ Đã âm ngân sách tháng: <span className="font-mono" style={{ color: '#EF4444' }}>-{formatVND(Math.abs(stats.net))}</span>
+                  </>
+                )}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                {stats.net >= 0 ? (
+                  <>
+                    Sau khi trừ chi tiêu ({formatVND(stats.expense)}) và trích tiết kiệm ({formatVND(stats.savings)}), bạn còn <strong>{formatVND(stats.net)}</strong> an toàn để tiêu cho <strong>{stats.daysRemaining} ngày</strong> còn lại của tháng.
+                  </>
+                ) : (
+                  <>
+                    Tổng chi tiêu và tiết kiệm đã vượt quá thu nhập tháng. Hãy siết chặt các khoản chi "Mong muốn" từ hôm nay!
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => { sound.playClick(); setShowAdvisor(true); }}
+            className="btn-ghost"
+            style={{ fontSize: '0.76rem', padding: '6px 12px', color: 'var(--accent-emerald)' }}
+          >
+            Gợi ý cân đối ngân sách →
+          </button>
+        </div>
+      )}
 
       {/* 50/30/20 Clean Progress - Evaluated specifically for the month */}
       <div className="zen-card" style={{ padding: '24px', marginBottom: '28px' }}>

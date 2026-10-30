@@ -34,18 +34,30 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
     });
 
     const monthRate = thisMonthIncome > 0 ? Math.round((thisMonthSavings / thisMonthIncome) * 100) : 0;
+    const allTimeSpendable = allTimeIncome - allTimeExpense - allTimeSavings;
+    const thisMonthSpendable = thisMonthIncome - thisMonthExpense - thisMonthSavings;
+
+    // Tính hạn mức chi tiêu an toàn mỗi ngày cho các ngày còn lại trong tháng
+    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const daysRemaining = Math.max(1, lastDayOfMonth - today.getDate() + 1);
+    const dailyBudgetRemaining = thisMonthSpendable > 0 ? Math.round(thisMonthSpendable / daysRemaining) : 0;
 
     return {
       allTimeIncome,
       allTimeExpense,
+      allTimeSavings,
+      allTimeSpendable,
       allTimeNet: allTimeIncome - allTimeExpense,
       thisMonthIncome,
       thisMonthExpense,
       thisMonthSavings,
+      thisMonthSpendable,
       thisMonthNet: thisMonthIncome - thisMonthExpense,
+      daysRemaining,
+      dailyBudgetRemaining,
       rate: monthRate
     };
-  }, [transactions, currentMonthPrefix]);
+  }, [transactions, currentMonthPrefix, today]);
 
   const thisMonthTransactions = useMemo(() => {
     return transactions.filter(t => t.date && t.date.startsWith(currentMonthPrefix));
@@ -68,6 +80,11 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
             Kỷ luật chuỗi {streak?.currentStreak ?? 0} ngày • Nạp +{streak?.kanjiVocabCount ?? 0} từ vựng/Kanji • Tiết kiệm {fin.rate}% thu nhập
+            {fin.thisMonthSpendable > 0 && (
+              <span style={{ color: 'var(--accent-emerald)', fontWeight: '500' }}>
+                {' '}• Còn ~{formatVND(fin.dailyBudgetRemaining)}/ngày để tiêu
+              </span>
+            )}
           </p>
         </div>
 
@@ -87,12 +104,23 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '32px' }}>
         
         <div className="zen-card" style={{ padding: '20px' }}>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>SỐ DƯ TÍCH LŨY (VÍ)</div>
-          <div className="font-mono" style={{ fontSize: '1.5rem', fontWeight: '600', color: fin.allTimeNet >= 0 ? '#FFFFFF' : 'var(--accent-rose)', marginTop: '8px' }}>
-            {formatVND(fin.allTimeNet)}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>SỐ DƯ KHẢ DỤNG (VÍ)</div>
+            {fin.allTimeSavings > 0 && (
+              <span style={{ fontSize: '0.66rem', padding: '1px 5px', borderRadius: '4px', background: 'rgba(167, 139, 250, 0.15)', color: '#A78BFA' }}>
+                Tiền mặt
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Thu tháng {currentMonthNum}: +{formatVND(fin.thisMonthIncome)}
+          <div className="font-mono" style={{ fontSize: '1.5rem', fontWeight: '600', color: fin.allTimeSpendable >= 0 ? '#FFFFFF' : 'var(--accent-rose)', marginTop: '8px' }}>
+            {formatVND(fin.allTimeSpendable)}
+          </div>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            {fin.allTimeSavings > 0 ? (
+              <span>Đã cất tiết kiệm: <strong className="font-mono" style={{ color: '#A78BFA' }}>{formatVND(fin.allTimeSavings)}</strong></span>
+            ) : (
+              <span>Thu tháng {currentMonthNum}: +{formatVND(fin.thisMonthIncome)}</span>
+            )}
           </div>
         </div>
 
@@ -106,8 +134,17 @@ export default function Dashboard({ transactions, tasks, streak, setActiveTab, o
           <div className="font-mono" style={{ fontSize: '1.5rem', fontWeight: '600', color: 'var(--accent-rose)', marginTop: '8px' }}>
             {formatVND(fin.thisMonthExpense)}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            {fin.thisMonthNet >= 0 ? `Dư thu-chi tháng: +${formatVND(fin.thisMonthNet)}` : `Bội chi tháng: -${formatVND(Math.abs(fin.thisMonthNet))}`}
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            {fin.thisMonthSpendable >= 0 ? (
+              <span>Dư khả dụng: <strong className="font-mono" style={{ color: 'var(--accent-emerald)' }}>+{formatVND(fin.thisMonthSpendable)}</strong></span>
+            ) : (
+              <span>Bội chi tháng: <strong className="font-mono" style={{ color: 'var(--accent-rose)' }}>-{formatVND(Math.abs(fin.thisMonthSpendable))}</strong></span>
+            )}
+            {fin.thisMonthSavings > 0 && (
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', display: 'block', marginTop: '2px' }}>
+                (Đã trừ tiền tiết kiệm: -{formatVND(fin.thisMonthSavings)})
+              </span>
+            )}
           </div>
         </div>
 

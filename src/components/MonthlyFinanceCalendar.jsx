@@ -72,7 +72,9 @@ export default function MonthlyFinanceCalendar({
       income,
       expense,
       savings,
-      net: income - expense
+      // Dư khả dụng thực tế sau khi trừ cả chi tiêu và tiền cất tiết kiệm
+      net: income - expense - savings,
+      rawNet: income - expense
     };
   }, [transactions, year, month]);
 
@@ -223,7 +225,7 @@ export default function MonthlyFinanceCalendar({
           </button>
         </div>
 
-        {/* Monthly Summary Badges: Thu Xanh Dương, Chi Đỏ */}
+        {/* Monthly Summary Badges: Thu Xanh Dương, Chi Đỏ, Tiết Kiệm Tím */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.8rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ color: 'var(--text-muted)' }}>Thu:</span>
@@ -239,8 +241,17 @@ export default function MonthlyFinanceCalendar({
             </span>
           </div>
 
+          {monthStats.savings > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Tiết kiệm:</span>
+              <span className="font-mono" style={{ fontWeight: '600', color: '#A78BFA' }}>
+                -{formatVND(monthStats.savings)}
+              </span>
+            </div>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderLeft: '1px solid var(--border-subtle)', paddingLeft: '12px' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Dư:</span>
+            <span style={{ color: 'var(--text-muted)' }}>Dư khả dụng:</span>
             <span className="font-mono" style={{ fontWeight: '600', color: monthStats.net >= 0 ? '#10B981' : '#EF4444' }}>
               {monthStats.net >= 0 ? '+' : ''}{formatVND(monthStats.net)}
             </span>
@@ -272,6 +283,7 @@ export default function MonthlyFinanceCalendar({
           const isToday = cell.dateStr === todayStr;
           const hasIncome = cell.stats && cell.stats.income > 0;
           const hasExpense = cell.stats && cell.stats.expense > 0;
+          const hasSavings = cell.stats && cell.stats.savings > 0;
 
           return (
             <div
@@ -373,6 +385,25 @@ export default function MonthlyFinanceCalendar({
                     title={`Chi: -${formatVND(cell.stats.expense)}`}
                   >
                     -{formatCompactVND(cell.stats.expense)}
+                  </span>
+                )}
+
+                {hasSavings && (
+                  <span
+                    className="font-mono"
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: '600',
+                      color: '#A78BFA',
+                      lineHeight: '1.2',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      maxWidth: '100%'
+                    }}
+                    title={`Tiết kiệm: -${formatVND(cell.stats.savings)}`}
+                  >
+                    -{formatCompactVND(cell.stats.savings)}
                   </span>
                 )}
               </div>
